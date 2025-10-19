@@ -1,10 +1,18 @@
 import * as admin from 'firebase-admin'
 import { reportView } from './reportView'
 import { onWishlistCreate } from './onWishlistCreate'
-import { onLoanCreate } from './onLoanCreate'
-import { onLoanReturn } from './onLoanReturn'
-import { recomputePopularity } from './recomputePopularity'
+import { onWishlistDelete } from './onWishlistDelete'
+import { syncBookSnapshot } from './syncBookSnapshot'
+import { createLoan } from './createLoan'
+import { returnLoan } from './returnLoan'
 
 admin.initializeApp()
 
-export { reportView, onWishlistCreate, onLoanCreate, onLoanReturn, recomputePopularity }
+export {
+  reportView,
+  onWishlistCreate,
+  onWishlistDelete,
+  syncBookSnapshot,
+  createLoan,
+  returnLoan,
+}
