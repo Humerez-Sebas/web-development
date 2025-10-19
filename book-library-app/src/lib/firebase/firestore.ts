@@ -45,6 +45,7 @@ interface ReturnLoanRequest {
 
 interface CallableSuccess {
   success: boolean
+  book?: Book
 }
 
 const syncBookSnapshotCallable = httpsCallable<SyncBookRequest, CallableSuccess>(
@@ -105,6 +106,26 @@ export const addBookToFirestore = async (book: Book): Promise<void> => {
     console.error('Error syncing book to Firestore:', error)
     throw error
   }
+}
+
+export const addBookToFirestoreAndGet = async (book: Book): Promise<Book> => {
+  const { data } = await syncBookSnapshotCallable({ book: sanitizeBookForTransfer(book) })
+
+  if (!data || !('success' in data) || !data.success) {
+    throw new Error('syncBookSnapshot failed')
+  }
+
+  if (data.book) {
+    return data.book as Book
+  }
+
+  const fresh = await getBookFromFirestore(book.id)
+
+  if (!fresh) {
+    throw new Error('Book not found after sync')
+  }
+
+  return fresh
 }
 
 export const getBookFromFirestore = async (bookId: string): Promise<Book | null> => {

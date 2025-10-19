@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { searchBooks, getBookById, transformGoogleBookToBook, initializeBookInFirestore } from '@/lib/api/googleBooks'
-import { addBookToFirestore, getBookFromFirestore } from '@/lib/firebase/firestore'
+import { addBookToFirestoreAndGet, getBookFromFirestore } from '@/lib/firebase/firestore'
 import { useBooksStore } from '@/store/booksStore'
 import type { Book } from '@/types'
 
@@ -55,8 +55,8 @@ export const useBooks = () => {
       if (!book) {
         const googleBook = await getBookById(bookId)
         const transformedBook = transformGoogleBookToBook(googleBook)
-        book = initializeBookInFirestore(transformedBook)
-        await addBookToFirestore(book)
+        const initializedBook = initializeBookInFirestore(transformedBook)
+        book = await addBookToFirestoreAndGet(initializedBook)
       }
       
       setSelectedBook(book)

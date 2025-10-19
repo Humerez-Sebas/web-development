@@ -21,10 +21,9 @@ service cloud.firestore {
     }
     
     match /books/{bookId} {
+      // Client apps only read book documents; writes are handled via Cloud Functions
       allow read: if true;
-      allow create: if request.auth != null &&
-        !exists(/databases/$(database)/documents/books/$(bookId));
-      allow update, delete: if request.auth.token.admin == true;
+      allow write: if false;
     }
     
     match /bookViews/{bookId}/views/{userId} {
