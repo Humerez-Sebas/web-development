@@ -7,17 +7,28 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils/formatters'
 import { updateUserPreferences } from '@/lib/firebase/firestore'
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const { theme, setTheme } = useTheme()
-  const [emailNotifications, setEmailNotifications] = useState(
-    user?.preferences.emailNotifications || false
-  )
   const [saving, setSaving] = useState(false)
+
+  const themeOptions: Array<{ id: 'light' | 'dark'; label: string; description: string; preview: string }> = [
+    {
+      id: 'light',
+      label: 'Light',
+      description: 'Bright backgrounds and crisp contrast for daytime reading.',
+      preview: 'bg-gradient-to-br from-white via-gray-100 to-gray-200',
+    },
+    {
+      id: 'dark',
+      label: 'Dark',
+      description: 'Muted interface with deep tones that go easy on the eyes at night.',
+      preview: 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700',
+    },
+  ]
 
   const handleSavePreferences = async () => {
     if (!user) return
@@ -26,7 +37,6 @@ export default function ProfilePage() {
     try {
       await updateUserPreferences(user.uid, {
         theme,
-        emailNotifications,
       })
     } catch (error) {
       console.error('Failed to save preferences:', error)
@@ -73,52 +83,56 @@ export default function ProfilePage() {
           </Card>
 
           <Card className="p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Preferences
-            </h2>
-            <div className="space-y-4">
+            <div className="flex flex-col gap-2 mb-6 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Theme
-                </label>
-                <div className="flex gap-4">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Preferences
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Personalize the interface to match how and when you read.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-sm font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                Active theme: {theme === 'dark' ? 'Dark' : 'Light'}
+              </span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {themeOptions.map((option) => {
+                const isActive = theme === option.id
+                return (
                   <button
-                    onClick={() => setTheme('light')}
-                    className={`px-4 py-2 rounded-lg border ${
-                      theme === 'light'
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900'
-                        : 'border-gray-300 dark:border-gray-600'
+                    key={option.id}
+                    type="button"
+                    onClick={() => setTheme(option.id)}
+                    className={`rounded-2xl border p-4 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+                      isActive
+                        ? 'border-primary-500 shadow-lg shadow-primary-500/20'
+                        : 'border-gray-200 hover:border-primary-400 dark:border-gray-700 dark:hover:border-primary-400'
                     }`}
                   >
-                    Light
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {option.label}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {option.description}
+                        </p>
+                      </div>
+                      <span
+                        className={`h-6 w-6 rounded-full border-2 ${
+                          isActive
+                            ? 'border-primary-500 bg-primary-500'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                      />
+                    </div>
+                    <div className={`mt-6 h-24 rounded-xl ${option.preview}`}></div>
                   </button>
-                  <button
-                    onClick={() => setTheme('dark')}
-                    className={`px-4 py-2 rounded-lg border ${
-                      theme === 'dark'
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                  >
-                    Dark
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={emailNotifications}
-                    onChange={(e) => setEmailNotifications(e.target.checked)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Email Notifications
-                  </span>
-                </label>
-              </div>
-
+                )
+              })}
+            </div>
+            <div className="mt-8 flex justify-end">
               <Button onClick={handleSavePreferences} loading={saving}>
                 Save Preferences
               </Button>

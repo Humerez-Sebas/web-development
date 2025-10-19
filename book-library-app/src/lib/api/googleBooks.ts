@@ -40,25 +40,29 @@ export const transformGoogleBookToBook = (
   googleBook: GoogleBookVolume
 ): Omit<Book, 'stock' | 'stats' | 'popularityScore'> => {
   const info = googleBook.volumeInfo || {}
+  const description = info.description ?? ''
+  const isbn =
+    info.industryIdentifiers?.find((id) => id.type === 'ISBN_13')?.identifier ||
+    info.industryIdentifiers?.find((id) => id.type === 'ISBN_10')?.identifier ||
+    ''
+  const shortDescription = description
+    ? `${description.substring(0, 200)}${description.length > 200 ? '...' : ''}`
+    : ''
 
   return {
     id: googleBook.id,
     title: info.title || 'Untitled',
     authors: info.authors?.length ? info.authors : ['Unknown Author'],
-    publishedDate: info.publishedDate,
-    description: info.description,
-    shortDescription: info.description
-      ? info.description.substring(0, 200) + '...'
-      : undefined,
+    publishedDate: info.publishedDate ?? '',
+    description,
+    shortDescription,
     coverUrl: info.imageLinks?.thumbnail || '/book-placeholder.png',
     pageCount: info.pageCount ?? 0,
     categories: info.categories ?? [],
-    averageRating: info.averageRating,
-    language: info.language || 'unknown',
-    isbn:
-      info.industryIdentifiers?.find((id) => id.type === 'ISBN_13')?.identifier ||
-      info.industryIdentifiers?.find((id) => id.type === 'ISBN_10')?.identifier,
-    previewLink: info.previewLink,
+    averageRating: info.averageRating ?? 0,
+    language: info.language ?? '',
+    isbn,
+    previewLink: info.previewLink ?? '',
   }
 }
 

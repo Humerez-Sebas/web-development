@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { updateBookStats } from './bookData'
 
 export const reportView = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -20,23 +21,24 @@ export const reportView = functions.https.onCall(async (data, context) => {
   }
 
   const db = admin.firestore()
-  const batch = db.batch()
-
   const viewRef = db.doc(`bookViews/${bookId}/views/${userId}`)
   const viewDoc = await viewRef.get()
 
-  const bookRef = db.doc(`books/${bookId}`)
-
   if (!viewDoc.exists) {
-    batch.set(viewRef, {
+    await viewRef.set({
       lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
     })
 
-    batch.update(bookRef, {
-      'stats.views': admin.firestore.FieldValue.increment(1),
+    await updateBookStats(bookId, ({ stats, stock }) => {
+      return {
+        stats: {
+          views: stats.views + 1,
+          wishlists: stats.wishlists,
+          loans: stats.loans,
+        },
+        stock,
+      }
     })
-
-    await batch.commit()
   } else {
     await viewRef.update({
       lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),

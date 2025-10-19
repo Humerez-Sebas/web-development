@@ -22,7 +22,9 @@ service cloud.firestore {
     
     match /books/{bookId} {
       allow read: if true;
-      allow write: if request.auth.token.admin == true;
+      allow create: if request.auth != null &&
+        !exists(/databases/$(database)/documents/books/$(bookId));
+      allow update, delete: if request.auth.token.admin == true;
     }
     
     match /bookViews/{bookId}/views/{userId} {
