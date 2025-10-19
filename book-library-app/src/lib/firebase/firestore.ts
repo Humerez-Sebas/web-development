@@ -10,19 +10,99 @@ import {
   limit,
   deleteDoc,
   updateDoc,
-  increment,
-  runTransaction,
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore'
-import { db } from './init'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from './init'
 import type { Book, WishlistItem, Loan, User } from '@/types'
+
+interface SyncBookRequest {
+  book: Book
+}
+
+interface CreateLoanRequest {
+  userId: string
+  book: Book
+  userSnapshot: {
+    name: string
+    email: string
+  }
+}
+
+interface ReturnLoanRequest {
+  userId: string
+  loanId: string
+  book: {
+    id: string
+    title?: string
+    authors?: string[]
+    publishedDate?: string
+    shortDescription?: string
+    coverUrl?: string
+  }
+}
+
+interface CallableSuccess {
+  success: boolean
+}
+
+const syncBookSnapshotCallable = httpsCallable<SyncBookRequest, CallableSuccess>(
+  functions,
+  'syncBookSnapshot'
+)
+
+const createLoanCallable = httpsCallable<CreateLoanRequest, CallableSuccess>(
+  functions,
+  'createLoan'
+)
+
+const returnLoanCallable = httpsCallable<ReturnLoanRequest, CallableSuccess>(
+  functions,
+  'returnLoan'
+)
+
+const reportViewCallable = httpsCallable<{ bookId: string }, CallableSuccess>(
+  functions,
+  'reportView'
+)
+
+const sanitizeBookForTransfer = (book: Book): Book => {
+  return {
+    ...book,
+    title: book.title || 'Untitled',
+    authors: book.authors?.length ? book.authors : ['Unknown Author'],
+    publishedDate: book.publishedDate ?? '',
+    description: book.description ?? '',
+    shortDescription: book.shortDescription ?? '',
+    coverUrl: book.coverUrl ?? '/book-placeholder.png',
+    pageCount: book.pageCount ?? 0,
+    categories: book.categories ?? [],
+    averageRating: book.averageRating ?? 0,
+    language: book.language ?? '',
+    isbn: book.isbn ?? '',
+    previewLink: book.previewLink ?? '',
+    stock: {
+      total: book.stock?.total ?? 0,
+      available: book.stock?.available ?? 0,
+    },
+    stats: {
+      views: book.stats?.views ?? 0,
+      wishlists: book.stats?.wishlists ?? 0,
+      loans: book.stats?.loans ?? 0,
+    },
+    popularityScore: book.popularityScore ?? 0,
+  }
+}
 
 export const addBookToFirestore = async (book: Book): Promise<void> => {
   try {
-    await setDoc(doc(db, 'books', book.id), book)
-  } catch (error) {
-    console.error('Error adding book to Firestore:', error)
+    await syncBookSnapshotCallable({ book: sanitizeBookForTransfer(book) })
+  } catch (error: any) {
+    if (error?.code === 'functions/unauthenticated') {
+      return
+    }
+    console.error('Error syncing book to Firestore:', error)
     throw error
   }
 }
@@ -68,18 +148,8 @@ export const addToWishlist = async (
   }
   
   try {
-    await runTransaction(db, async (transaction) => {
-      transaction.set(wishlistRef, wishlistItem)
-      
-      const bookRef = doc(db, 'books', book.id)
-      const bookDoc = await transaction.get(bookRef)
-      
-      if (bookDoc.exists()) {
-        transaction.update(bookRef, {
-          'stats.wishlists': increment(1),
-        })
-      }
-    })
+    await addBookToFirestore(book)
+    await setDoc(wishlistRef, wishlistItem)
   } catch (error) {
     console.error('Error adding to wishlist:', error)
     throw error
@@ -92,19 +162,8 @@ export const removeFromWishlist = async (
   bookId: string
 ): Promise<void> => {
   try {
-    await runTransaction(db, async (transaction) => {
-      const wishlistRef = doc(db, 'users', userId, 'wishlist', wishlistItemId)
-      transaction.delete(wishlistRef)
-      
-      const bookRef = doc(db, 'books', bookId)
-      const bookDoc = await transaction.get(bookRef)
-      
-      if (bookDoc.exists()) {
-        transaction.update(bookRef, {
-          'stats.wishlists': increment(-1),
-        })
-      }
-    })
+    const wishlistRef = doc(db, 'users', userId, 'wishlist', wishlistItemId)
+    await deleteDoc(wishlistRef)
   } catch (error) {
     console.error('Error removing from wishlist:', error)
     throw error
@@ -135,62 +194,15 @@ export const createLoan = async (
   book: Book,
   user: User
 ): Promise<void> => {
-  const loanRef = doc(collection(db, 'users', userId, 'loans'))
-  
-  const dueDate = new Date()
-  dueDate.setDate(dueDate.getDate() + 14)
-  
-  const loan: Omit<Loan, 'id'> = {
-    userId,
-    bookId: book.id,
-    createdAt: Timestamp.now(),
-    dueDate: Timestamp.fromDate(dueDate),
-    status: 'active',
-    snapshot: {
-      id: book.id,
-      title: book.title,
-      authors: book.authors,
-      coverUrl: book.coverUrl,
-      publishedDate: book.publishedDate,
-      shortDescription: book.shortDescription,
-    },
-    userSnapshot: {
-      name: user.name,
-      email: user.email,
-    },
-  }
-  
   try {
-    await runTransaction(db, async (transaction) => {
-      const bookRef = doc(db, 'books', book.id)
-      const bookDoc = await transaction.get(bookRef)
-      
-      if (!bookDoc.exists()) {
-        throw new Error('Book not found')
-      }
-      
-      const bookData = bookDoc.data() as Book
-      
-      if (bookData.stock.available <= 0) {
-        throw new Error('Book is out of stock')
-      }
-      
-      const userLoansQuery = query(
-        collection(db, 'users', userId, 'loans'),
-        where('status', '==', 'active')
-      )
-      const userLoans = await getDocs(userLoansQuery)
-      
-      if (userLoans.size >= 3) {
-        throw new Error('Maximum loan limit reached')
-      }
-      
-      transaction.set(loanRef, loan)
-      
-      transaction.update(bookRef, {
-        'stock.available': increment(-1),
-        'stats.loans': increment(1),
-      })
+    await addBookToFirestore(book)
+    await createLoanCallable({
+      userId,
+      book: sanitizeBookForTransfer(book),
+      userSnapshot: {
+        name: user.name,
+        email: user.email,
+      },
     })
   } catch (error) {
     console.error('Error creating loan:', error)
@@ -204,18 +216,10 @@ export const returnLoan = async (
   bookId: string
 ): Promise<void> => {
   try {
-    await runTransaction(db, async (transaction) => {
-      const loanRef = doc(db, 'users', userId, 'loans', loanId)
-      
-      transaction.update(loanRef, {
-        status: 'returned',
-        returnedAt: serverTimestamp(),
-      })
-      
-      const bookRef = doc(db, 'books', bookId)
-      transaction.update(bookRef, {
-        'stock.available': increment(1),
-      })
+    await returnLoanCallable({
+      userId,
+      loanId,
+      book: { id: bookId },
     })
   } catch (error) {
     console.error('Error returning loan:', error)
@@ -255,22 +259,9 @@ export const getUserLoans = async (
   }
 }
 
-export const reportBookView = async (bookId: string, userId: string): Promise<void> => {
+export const reportBookView = async (bookId: string): Promise<void> => {
   try {
-    const viewRef = doc(db, 'bookViews', bookId, 'views', userId)
-    
-    await setDoc(viewRef, {
-      lastViewedAt: serverTimestamp(),
-    })
-    
-    const bookRef = doc(db, 'books', bookId)
-    const bookDoc = await getDoc(bookRef)
-    
-    if (bookDoc.exists()) {
-      await updateDoc(bookRef, {
-        'stats.views': increment(1),
-      })
-    }
+    await reportViewCallable({ bookId })
   } catch (error) {
     console.error('Error reporting book view:', error)
   }
@@ -281,10 +272,23 @@ export const updateUserPreferences = async (
   preferences: Partial<User['preferences']>
 ): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'users', userId), {
-      preferences,
+    const updates: Record<string, unknown> = {
       updatedAt: serverTimestamp(),
-    })
+    }
+
+    if (preferences.theme) {
+      updates['preferences.theme'] = preferences.theme
+    }
+
+    if (preferences.language) {
+      updates['preferences.language'] = preferences.language
+    }
+
+    if (typeof preferences.emailNotifications === 'boolean') {
+      updates['preferences.emailNotifications'] = preferences.emailNotifications
+    }
+
+    await updateDoc(doc(db, 'users', userId), updates)
   } catch (error) {
     console.error('Error updating user preferences:', error)
     throw error
