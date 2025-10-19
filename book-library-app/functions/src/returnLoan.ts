@@ -22,7 +22,7 @@ interface ReturnLoanRequest {
   }
 }
 
-export const returnLoan = functions.https.onCall(async (data: ReturnLoanRequest, context) => {
+export const returnLoan = functions.region('us-central1').https.onCall(async (data: ReturnLoanRequest, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required')
   }

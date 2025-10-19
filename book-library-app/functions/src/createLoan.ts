@@ -25,7 +25,7 @@ interface CreateLoanRequest {
   }
 }
 
-export const createLoan = functions.https.onCall(async (data: CreateLoanRequest, context) => {
+export const createLoan = functions.region('us-central1').https.onCall(async (data: CreateLoanRequest, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required')
   }

@@ -25,6 +25,6 @@ if (!getApps().length) {
 
 auth = getAuth(app)
 db = getFirestore(app)
-functionsInstance = getFunctions(app)
+functionsInstance = getFunctions(app, 'us-central1')
 
 export { app, auth, db, functionsInstance as functions }
