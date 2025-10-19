@@ -26,4 +26,3 @@ export const syncBookSnapshot = functions
       book: snapshot.data(),
     }
   })
-
