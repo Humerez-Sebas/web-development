@@ -4,7 +4,11 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Book } from '@/types'
 import { getBookById, transformGoogleBookToBook, initializeBookInFirestore } from '@/lib/api/googleBooks'
-import { getBookFromFirestore, addBookToFirestore, reportBookView } from '@/lib/firebase/firestore'
+import {
+  getBookFromFirestore,
+  addBookToFirestoreAndGet,
+  reportBookView,
+} from '@/lib/firebase/firestore'
 import { BookDetail } from '@/components/books/BookDetail'
 import { Header } from '@/components/layout/Header'
 import { Spinner } from '@/components/ui/Spinner'
@@ -41,11 +45,9 @@ export default function BookPage({ params }: PageProps) {
           const transformedBook = transformGoogleBookToBook(googleBook)
           console.log('🔄 Transformed Google Book:', transformedBook)
 
-          bookData = initializeBookInFirestore(transformedBook)
-          console.log('🧩 Initialized book for Firestore:', bookData)
-
-          await addBookToFirestore(bookData)
-          console.log('✅ Book added to Firestore successfully.')
+          const initializedBook = initializeBookInFirestore(transformedBook)
+          bookData = await addBookToFirestoreAndGet(initializedBook)
+          console.log('✅ Book synced & loaded from Firestore successfully.')
         } else {
           console.log('📚 Book loaded directly from Firestore.')
         }
