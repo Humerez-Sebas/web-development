@@ -56,7 +56,7 @@ export default function BookPage({ params }: PageProps) {
         // 4️⃣ Reportar vista si hay usuario
         if (user) {
           console.log(`👤 Reporting book view for user: ${user.uid}`)
-          await reportBookView(resolvedParams.id, user.uid)
+          await reportBookView(resolvedParams.id)
           console.log('📈 View reported successfully.')
         } else {
           console.log('⚠️ No user logged in, skipping view report.')
