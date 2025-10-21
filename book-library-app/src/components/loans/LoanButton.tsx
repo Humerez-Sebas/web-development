@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLoans } from '@/hooks/useLoans'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
@@ -13,24 +13,30 @@ interface LoanButtonProps {
 export const LoanButton = ({ book }: LoanButtonProps) => {
   const { user } = useAuth()
   const { borrowBook, checkActiveLoan, actionLoading, activeLoans } = useLoans()
+
   const [hasActiveLoan, setHasActiveLoan] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const ready = useMemo(() => Boolean(user?.uid && book?.id), [user?.uid, book?.id])
+
   useEffect(() => {
-    const checkStatus = async () => {
-      if (user) {
-        const hasLoan = await checkActiveLoan(book.id)
-        setHasActiveLoan(hasLoan)
+    const run = async () => {
+      if (!ready) {
+        setHasActiveLoan(false)
+        return
       }
+      const hasLoan = await checkActiveLoan(book.id)
+      setHasActiveLoan(hasLoan)
     }
-    checkStatus()
-  }, [user, book.id, checkActiveLoan])
+    run()
+  }, [ready, book.id, checkActiveLoan])
 
   const handleClick = async () => {
     if (!user) {
       window.location.href = '/auth/login'
       return
     }
+    if (!book?.id) return
 
     if (activeLoans.length >= 3) {
       alert('You have reached the maximum loan limit of 3 books')
@@ -39,20 +45,19 @@ export const LoanButton = ({ book }: LoanButtonProps) => {
 
     setLoading(true)
     const success = await borrowBook(book)
-    if (success) {
-      setHasActiveLoan(true)
-    }
+    if (success) setHasActiveLoan(true)
     setLoading(false)
   }
 
-  const isDisabled = hasActiveLoan || book.stock.available === 0
+  const outOfStock = (book?.stock?.available ?? 0) === 0
+  const disabled = !ready || hasActiveLoan || outOfStock || loading || actionLoading
 
   return (
     <Button
       onClick={handleClick}
       loading={loading || actionLoading}
-      disabled={isDisabled}
-      variant={isDisabled ? 'secondary' : 'primary'}
+      disabled={disabled}
+      variant={disabled ? 'secondary' : 'primary'}
     >
       {hasActiveLoan ? (
         <>
@@ -61,7 +66,7 @@ export const LoanButton = ({ book }: LoanButtonProps) => {
           </svg>
           Already Borrowed
         </>
-      ) : book.stock.available === 0 ? (
+      ) : outOfStock ? (
         <>Out of Stock</>
       ) : (
         <>

@@ -8,32 +8,21 @@ export const useTheme = () => {
   const { user } = useAuthStore()
 
   useEffect(() => {
-    if (user?.preferences?.theme) {
-      setTheme(user.preferences.theme)
-    }
-  }, [user, setTheme])
-
-  useEffect(() => {
     if (typeof window !== 'undefined') {
       document.documentElement.classList.toggle('dark', theme === 'dark')
     }
   }, [theme])
 
-  const updateTheme = async (newTheme: 'light' | 'dark') => {
+  const updateTheme = (newTheme: 'light' | 'dark') => {
     setTheme(newTheme)
-    
     if (user) {
-      try {
-        await updateUserPreferences(user.uid, { theme: newTheme })
-      } catch (error) {
-        console.error('Failed to update theme preference:', error)
-      }
+      updateUserPreferences(user.uid, { theme: newTheme }).catch(() => {})
     }
   }
 
-  const toggle = async () => {
+  const toggle = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'
-    await updateTheme(newTheme)
+    updateTheme(newTheme)
   }
 
   return {

@@ -18,14 +18,11 @@ export const useLoans = () => {
       clearLoans()
       setIsInitialized(false)
     }
-  }, [user])
+  }, [user]) // eslint-disable-line
 
   const loadLoans = useCallback(async () => {
-    if (!user) return
-
-    setLoading(true)
-    setError(null)
-
+    if (!user?.uid) return
+    setLoading(true); setError(null)
     try {
       const userLoans = await getUserLoans(user.uid)
       setLoans(userLoans)
@@ -35,14 +32,12 @@ export const useLoans = () => {
     } finally {
       setLoading(false)
     }
-  }, [user, setLoans, setLoading, setError])
+  }, [user?.uid, setLoans, setLoading, setError])
 
-  const borrowBook = useCallback(async (book: Book) => {
-    if (!user) throw new Error('Must be logged in')
-
-    setActionLoading(true)
-    setError(null)
-
+  const borrowBook = useCallback(async (book: Book | undefined) => {
+    if (!user?.uid) throw new Error('Must be logged in')
+    if (!book?.id) throw new Error('Book not ready')
+    setActionLoading(true); setError(null)
     try {
       await createLoan(user.uid, book, user)
       await loadLoans()
@@ -54,14 +49,11 @@ export const useLoans = () => {
     } finally {
       setActionLoading(false)
     }
-  }, [user, loadLoans, setError])
+  }, [user?.uid, user, loadLoans, setError])
 
   const returnBook = useCallback(async (loanId: string, bookId: string) => {
-    if (!user) throw new Error('Must be logged in')
-
-    setActionLoading(true)
-    setError(null)
-
+    if (!user?.uid) throw new Error('Must be logged in')
+    setActionLoading(true); setError(null)
     try {
       await returnLoan(user.uid, loanId, bookId)
       await loadLoans()
@@ -73,28 +65,17 @@ export const useLoans = () => {
     } finally {
       setActionLoading(false)
     }
-  }, [user, loadLoans, setError])
+  }, [user?.uid, loadLoans, setError])
 
-  const checkActiveLoan = useCallback(async (bookId: string): Promise<boolean> => {
-    if (!user) return false
-
+  const checkActiveLoan = useCallback(async (bookId: string | undefined): Promise<boolean> => {
+    if (!user?.uid || !bookId) return false
     try {
       return await hasActiveLoanForBook(user.uid, bookId)
     } catch (err) {
       console.error('Error checking loan status:', err)
       return false
     }
-  }, [user])
+  }, [user?.uid])
 
-  return {
-    loans,
-    activeLoans,
-    loading,
-    error,
-    actionLoading,
-    loadLoans,
-    borrowBook,
-    returnBook,
-    checkActiveLoan,
-  }
+  return { loans, activeLoans, loading, error, actionLoading, loadLoans, borrowBook, returnBook, checkActiveLoan }
 }

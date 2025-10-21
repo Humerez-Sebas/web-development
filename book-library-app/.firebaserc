@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "book-library-app-49efa"
-  }
+    "default": "book-library-app-49efa",
+    "dev": "book-library-app-49efa"
+  },
+  "targets": {},
+  "etags": {}
 }

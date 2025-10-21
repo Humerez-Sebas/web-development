@@ -18,14 +18,11 @@ export const useWishlist = () => {
       clearWishlist()
       setIsInitialized(false)
     }
-  }, [user])
+  }, [user]) // eslint-disable-line
 
   const loadWishlist = useCallback(async () => {
-    if (!user) return
-
-    setLoading(true)
-    setError(null)
-
+    if (!user?.uid) return
+    setLoading(true); setError(null)
     try {
       const wishlistItems = await getUserWishlist(user.uid)
       setItems(wishlistItems)
@@ -35,14 +32,12 @@ export const useWishlist = () => {
     } finally {
       setLoading(false)
     }
-  }, [user, setItems, setLoading, setError])
+  }, [user?.uid, setItems, setLoading, setError])
 
-  const addBook = useCallback(async (book: Book) => {
-    if (!user) throw new Error('Must be logged in')
-
-    setActionLoading(true)
-    setError(null)
-
+  const addBook = useCallback(async (book: Book | undefined) => {
+    if (!user?.uid) throw new Error('Must be logged in')
+    if (!book?.id) throw new Error('Book not ready')
+    setActionLoading(true); setError(null)
     try {
       await addToWishlist(user.uid, book, user)
       await loadWishlist()
@@ -54,14 +49,11 @@ export const useWishlist = () => {
     } finally {
       setActionLoading(false)
     }
-  }, [user, loadWishlist, setError])
+  }, [user?.uid, user, loadWishlist, setError])
 
   const removeBook = useCallback(async (wishlistItemId: string, bookId: string) => {
-    if (!user) throw new Error('Must be logged in')
-
-    setActionLoading(true)
-    setError(null)
-
+    if (!user?.uid) throw new Error('Must be logged in')
+    setActionLoading(true); setError(null)
     try {
       await removeFromWishlist(user.uid, wishlistItemId, bookId)
       await loadWishlist()
@@ -73,27 +65,17 @@ export const useWishlist = () => {
     } finally {
       setActionLoading(false)
     }
-  }, [user, loadWishlist, setError])
+  }, [user?.uid, loadWishlist, setError])
 
-  const checkIfInWishlist = useCallback(async (bookId: string): Promise<boolean> => {
-    if (!user) return false
-
+  const checkIfInWishlist = useCallback(async (bookId: string | undefined): Promise<boolean> => {
+    if (!user?.uid || !bookId) return false
     try {
       return await isBookInWishlist(user.uid, bookId)
     } catch (err) {
       console.error('Error checking wishlist status:', err)
       return false
     }
-  }, [user])
+  }, [user?.uid])
 
-  return {
-    items,
-    loading,
-    error,
-    actionLoading,
-    loadWishlist,
-    addBook,
-    removeBook,
-    checkIfInWishlist,
-  }
+  return { items, loading, error, actionLoading, loadWishlist, addBook, removeBook, checkIfInWishlist }
 }

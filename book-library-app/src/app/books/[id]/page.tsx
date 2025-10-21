@@ -66,7 +66,6 @@ export default function BookPage({ params }: PageProps) {
       } catch (err) {
         console.error('❌ Error loading book:', err)
         setError(err instanceof Error ? err.message : 'Failed to load book')
-        router.push('/404')
       } finally {
         console.log('✅ Finished loadBook execution.')
         setLoading(false)

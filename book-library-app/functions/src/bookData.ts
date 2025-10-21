@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin'
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 
 export interface BookInput {
   id: string
@@ -14,72 +14,37 @@ export interface BookInput {
   language?: string
   isbn?: string
   previewLink?: string
-  stock?: {
-    total?: number
-    available?: number
-  }
-  stats?: {
-    views?: number
-    wishlists?: number
-    loans?: number
-  }
+  stock?: { total?: number; available?: number }
+  stats?: { views?: number; wishlists?: number; loans?: number }
 }
 
-export interface BookStats {
-  views: number
-  wishlists: number
-  loans: number
-}
+export interface BookStats { views: number; wishlists: number; loans: number }
+export interface BookStock { total: number; available: number }
 
-export interface BookStock {
-  total: number
-  available: number
-}
+export const calculatePopularity = (stats: BookStats): number =>
+  stats.views + stats.wishlists * 5 + stats.loans * 10
 
-export const calculatePopularity = (stats: BookStats): number => {
-  const viewScore = stats.views
-  const wishlistScore = stats.wishlists * 5
-  const loanScore = stats.loans * 10
-  return viewScore + wishlistScore + loanScore
-}
+const normalizeAuthors = (authors?: string[]): string[] =>
+  !authors || !Array.isArray(authors) || authors.length === 0
+    ? ['Unknown Author']
+    : authors.filter((a) => a && a.trim().length > 0)
 
-const normalizeAuthors = (authors?: string[]): string[] => {
-  if (!authors || !Array.isArray(authors) || authors.length === 0) {
-    return ['Unknown Author']
-  }
-  return authors.filter((author) => author && author.trim().length > 0)
-}
+const normalizeText = (v?: string): string => v ?? ''
 
-const normalizeText = (value?: string): string => {
-  if (!value) {
-    return ''
-  }
-  return value
-}
+const normalizeCategories = (cats?: string[]): string[] =>
+  !cats || !Array.isArray(cats) ? [] : cats.filter((c) => c && c.trim().length > 0)
 
-const normalizeCategories = (categories?: string[]): string[] => {
-  if (!categories || !Array.isArray(categories)) {
-    return []
-  }
-  return categories.filter((category) => category && category.trim().length > 0)
-}
-
-const normalizeStats = (stats?: BookInput['stats']): BookStats => {
-  return {
-    views: Math.max(0, stats?.views ?? 0),
-    wishlists: Math.max(0, stats?.wishlists ?? 0),
-    loans: Math.max(0, stats?.loans ?? 0),
-  }
-}
+const normalizeStats = (s?: BookInput['stats']): BookStats => ({
+  views: Math.max(0, s?.views ?? 0),
+  wishlists: Math.max(0, s?.wishlists ?? 0),
+  loans: Math.max(0, s?.loans ?? 0),
+})
 
 const normalizeStock = (stock?: BookInput['stock']): BookStock => {
   const total = Math.max(0, stock?.total ?? 5)
   const availableBase = stock?.available ?? total
   const available = Math.min(total, Math.max(0, availableBase))
-  return {
-    total,
-    available,
-  }
+  return { total, available }
 }
 
 export const buildBookPayload = (input: BookInput) => {
@@ -105,10 +70,10 @@ export const buildBookPayload = (input: BookInput) => {
 }
 
 export const ensureBookDocument = async (input: BookInput) => {
-  const db = admin.firestore()
+  const db = getFirestore()
   const bookRef = db.doc(`books/${input.id}`)
   const payload = buildBookPayload(input)
-  const timestamp = admin.firestore.FieldValue.serverTimestamp()
+  const timestamp = FieldValue.serverTimestamp()
   const snapshot = await bookRef.get()
 
   if (!snapshot.exists) {
@@ -156,19 +121,14 @@ export const ensureBookDocument = async (input: BookInput) => {
 
 export const updateBookStats = async (
   bookId: string,
-  updater: (current: { stats: BookStats; stock: BookStock }) => {
-    stats: BookStats
-    stock?: BookStock
-  }
+  updater: (current: { stats: BookStats; stock: BookStock }) => { stats: BookStats; stock?: BookStock }
 ) => {
-  const db = admin.firestore()
+  const db = getFirestore()
   const bookRef = db.doc(`books/${bookId}`)
 
-  await db.runTransaction(async (transaction) => {
-    const bookSnapshot = await transaction.get(bookRef)
-    if (!bookSnapshot.exists) {
-      return
-    }
+  await db.runTransaction(async (tx) => {
+    const bookSnapshot = await tx.get(bookRef)
+    if (!bookSnapshot.exists) return
 
     const data = bookSnapshot.data() as any
     const currentStats = normalizeStats(data.stats)
@@ -181,7 +141,7 @@ export const updateBookStats = async (
       'stats.wishlists': result.stats.wishlists,
       'stats.loans': result.stats.loans,
       popularityScore,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     }
 
     if (result.stock) {
@@ -189,6 +149,6 @@ export const updateBookStats = async (
       updatePayload['stock.available'] = result.stock.available
     }
 
-    transaction.update(bookRef, updatePayload)
+    tx.update(bookRef, updatePayload)
   })
 }

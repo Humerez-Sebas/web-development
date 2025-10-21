@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useWishlist } from '@/hooks/useWishlist'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
@@ -13,38 +13,44 @@ interface WishlistButtonProps {
 export const WishlistButton = ({ book }: WishlistButtonProps) => {
   const { user } = useAuth()
   const { addBook, checkIfInWishlist, actionLoading } = useWishlist()
+
   const [isInWishlist, setIsInWishlist] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const ready = useMemo(() => Boolean(user?.uid && book?.id), [user?.uid, book?.id])
+
   useEffect(() => {
-    const checkStatus = async () => {
-      if (user) {
-        const inWishlist = await checkIfInWishlist(book.id)
-        setIsInWishlist(inWishlist)
+    const run = async () => {
+      if (!ready) {
+        setIsInWishlist(false)
+        return
       }
+      const inWishlist = await checkIfInWishlist(book.id)
+      setIsInWishlist(inWishlist)
     }
-    checkStatus()
-  }, [user, book.id, checkIfInWishlist])
+    run()
+  }, [ready, book.id, checkIfInWishlist])
 
   const handleClick = async () => {
     if (!user) {
       window.location.href = '/auth/login'
       return
     }
+    if (!book?.id) return
 
     setLoading(true)
     const success = await addBook(book)
-    if (success) {
-      setIsInWishlist(true)
-    }
+    if (success) setIsInWishlist(true)
     setLoading(false)
   }
+
+  const disabled = !ready || isInWishlist || loading || actionLoading
 
   return (
     <Button
       onClick={handleClick}
       loading={loading || actionLoading}
-      disabled={isInWishlist}
+      disabled={disabled}
       variant={isInWishlist ? 'secondary' : 'primary'}
     >
       {isInWishlist ? (

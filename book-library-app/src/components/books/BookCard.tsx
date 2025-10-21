@@ -12,12 +12,16 @@ interface BookCardProps {
 
 export const BookCard = ({ book }: BookCardProps) => {
   const { volumeInfo } = book
-  const coverUrl = volumeInfo.imageLinks?.thumbnail || '/book-placeholder.png'
-  const title = truncateText(volumeInfo.title, 50)
-  const authors = formatAuthors(volumeInfo.authors || [])
-  const description = volumeInfo.description
+  const coverUrl = volumeInfo?.imageLinks?.thumbnail || '/book-placeholder.png'
+  const title = truncateText(volumeInfo?.title ?? 'Untitled', 50)
+  const authors = formatAuthors(volumeInfo?.authors || [])
+  const description = volumeInfo?.description
     ? truncateText(volumeInfo.description, 100)
     : 'No description available'
+
+  const hasRating =
+    typeof volumeInfo?.averageRating === 'number' && volumeInfo.averageRating > 0
+  const ratingValue = hasRating ? Math.floor(volumeInfo!.averageRating!) : 0
 
   return (
     <Link href={`/books/${book.id}`}>
@@ -25,7 +29,7 @@ export const BookCard = ({ book }: BookCardProps) => {
         <div className="relative h-64 w-full">
           <Image
             src={coverUrl}
-            alt={volumeInfo.title}
+            alt={volumeInfo?.title ?? 'Book cover'}
             fill
             className="object-cover rounded-t-lg"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -41,14 +45,15 @@ export const BookCard = ({ book }: BookCardProps) => {
           <p className="text-sm text-gray-500 dark:text-gray-500 line-clamp-2">
             {description}
           </p>
-          {volumeInfo.averageRating && (
+
+          {hasRating && (
             <div className="mt-2 flex items-center">
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
                   <svg
                     key={i}
                     className={`w-4 h-4 ${
-                      i < Math.floor(volumeInfo.averageRating!)
+                      i < ratingValue
                         ? 'text-yellow-400'
                         : 'text-gray-300 dark:text-gray-600'
                     }`}
@@ -60,7 +65,7 @@ export const BookCard = ({ book }: BookCardProps) => {
                 ))}
               </div>
               <span className="ml-1 text-sm text-gray-600 dark:text-gray-400">
-                {volumeInfo.averageRating}
+                {volumeInfo!.averageRating}
               </span>
             </div>
           )}

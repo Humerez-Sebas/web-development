@@ -1,15 +1,14 @@
-import * as functions from 'firebase-functions'
+import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { ensureBookDocument, updateBookStats, buildBookPayload } from './bookData'
 
-export const onWishlistCreate = functions.firestore
-  .document('users/{userId}/wishlist/{wishlistId}')
-  .onCreate(async (snap, context) => {
-    const data = snap.data()
-    const bookId = data.bookId as string
-
-    if (!bookId) {
-      return null
-    }
+export const onWishlistCreate = onDocumentCreated(
+  'users/{userId}/wishlist/{wishlistId}',
+  async (event) => {
+    const snap = event.data
+    if (!snap) return
+    const data = snap.data() as any
+    const bookId = data?.bookId as string | undefined
+    if (!bookId) return
 
     const snapshot = data.snapshot || {}
 
@@ -24,16 +23,9 @@ export const onWishlistCreate = functions.firestore
       })
     )
 
-    await updateBookStats(bookId, ({ stats, stock }) => {
-      return {
-        stats: {
-          views: stats.views,
-          wishlists: stats.wishlists + 1,
-          loans: stats.loans,
-        },
-        stock,
-      }
-    })
-
-    return null
-  })
+    await updateBookStats(bookId, ({ stats, stock }) => ({
+      stats: { views: stats.views, wishlists: stats.wishlists + 1, loans: stats.loans },
+      stock,
+    }))
+  }
+)

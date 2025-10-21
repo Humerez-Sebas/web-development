@@ -1,26 +1,16 @@
-import * as functions from 'firebase-functions'
+import { onDocumentDeleted } from 'firebase-functions/v2/firestore'
 import { updateBookStats } from './bookData'
 
-export const onWishlistDelete = functions.firestore
-  .document('users/{userId}/wishlist/{wishlistId}')
-  .onDelete(async (snap, context) => {
-    const data = snap.data()
-    const bookId = data.bookId as string
+export const onWishlistDelete = onDocumentDeleted(
+  'users/{userId}/wishlist/{wishlistId}',
+  async (event) => {
+    const data = event.data?.data() as any
+    const bookId = data?.bookId as string | undefined
+    if (!bookId) return
 
-    if (!bookId) {
-      return null
-    }
-
-    await updateBookStats(bookId, ({ stats, stock }) => {
-      return {
-        stats: {
-          views: stats.views,
-          wishlists: Math.max(0, stats.wishlists - 1),
-          loans: stats.loans,
-        },
-        stock,
-      }
-    })
-
-    return null
-  })
+    await updateBookStats(bookId, ({ stats, stock }) => ({
+      stats: { views: stats.views, wishlists: Math.max(0, stats.wishlists - 1), loans: stats.loans },
+      stock,
+    }))
+  }
+)
